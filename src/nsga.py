@@ -68,11 +68,11 @@ def _mutate(config: ModelConfig, rng: np.random.Generator) -> ModelConfig:
 
 def run_nsga(
     X: np.ndarray,
-    pop_size: int = 60,
-    n_gen: int = 40,
+    pop_size: int = 20,
+    n_gen: int = 10,
     seed: int = 42,
-    kfold: int = 3,
-    bootstraps: int = 10,
+    kfold: int = 2,
+    bootstraps: int = 3,
     outdir: str = "outputs",
 ) -> Tuple[List[dict], Path]:
     _ensure_creators()

@@ -24,10 +24,10 @@ O entrypoint oficial é o módulo `src.runner`. Após ativar o ambiente virtual 
 python -m src.runner --csv data/raw/winequality-red.csv --outdir outputs --seed 42
 ```
 Outros parâmetros úteis:
-- `--pop` (tamanho da população NSGA-II, padrão 60)
-- `--gens` (número de gerações, padrão 40)
-- `--kfold` (dobras para validação cruzada, padrão 3)
-- `--bootstraps` (amostragens bootstrap para estabilidade, padrão 10)
+- `--pop` (tamanho da população NSGA-II, padrão 20)
+- `--gens` (número de gerações, padrão 10)
+- `--kfold` (dobras para validação cruzada, padrão 2)
+- `--bootstraps` (amostragens bootstrap para estabilidade, padrão 3)
 
 O comando realiza as etapas de carregamento e escalonamento dos dados, otimização evolutiva, seleção da solução de "joelho", ajuste final do ensemble, geração de métricas, artefatos gráficos e salvamento do modelo.
 
@@ -40,3 +40,19 @@ O comando realiza as etapas de carregamento e escalonamento dos dados, otimizaç
 - `nsga.py`: orquestra o algoritmo evolutivo NSGA-II usando DEAP, incluindo inicialização, operadores de cruzamento/mutação, avaliação e armazenamento da frente de Pareto.
 - `plots.py`: geração de figuras com a frente de Pareto e histogramas da log-verossimilhança no teste.
 - `runner.py`: script principal que conecta todas as etapas: parsing de argumentos, preparação de dados, execução NSGA-II, seleção do joelho, treinamento final, salvamento de métricas, modelos e gráficos.
+
+## Uso de modelo treinado
+Após a primeira execução completa do pipeline, um ensemble final treinado é armazenado em `outputs/final_model.pkl`, contendo o modelo, o scaler utilizado no pré-processamento e metadados de treinamento.
+
+1. **Treinar e salvar o modelo**
+   ```bash
+   python -m src.runner --csv data/raw/winequality-red.csv --outdir outputs --seed 42
+   ```
+   O comando acima salva o modelo final em `outputs/final_model.pkl` além de demais artefatos.
+
+2. **Reutilizar modelo salvo para novos dados**
+   ```bash
+   python -m src.runner --load_model outputs/final_model.pkl --csv data/raw/novos_dados.csv
+   ```
+   Esse modo carrega o ensemble previamente treinado, aplica o mesmo pré-processamento aos novos dados e gera predições/relatórios sem executar novamente o processo evolutivo.
+=======

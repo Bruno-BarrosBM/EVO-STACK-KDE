@@ -24,10 +24,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--csv", required=True, help="Path to winequality-red.csv")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--outdir", default="outputs")
-    parser.add_argument("--pop", type=int, default=60)
-    parser.add_argument("--gens", type=int, default=40)
-    parser.add_argument("--kfold", type=int, default=3)
-    parser.add_argument("--bootstraps", type=int, default=10)
+    # defaults reduzidos para execuções mais rápidas
+    parser.add_argument("--pop", type=int, default=20)
+    parser.add_argument("--gens", type=int, default=10)
+    parser.add_argument("--kfold", type=int, default=2)
+    parser.add_argument("--bootstraps", type=int, default=3)
+    parser.add_argument("--load_model", help="Path to previously trained model (.pkl)")
     return parser.parse_args()
 
 
@@ -36,7 +38,6 @@ def seed_everything(seed: int) -> None:
     np.random.seed(seed)
     try:
         import torch
-
         torch.manual_seed(seed)
     except Exception:
         pass
@@ -56,6 +57,61 @@ def _select_knee(pareto: List[dict]) -> dict:
 def main() -> None:
     _log_step("Iniciando pipeline EVO-STACK-KDE")
     args = parse_args()
+
+    # ===== Modo de inferência com modelo salvo =====
+    if args.load_model:
+        _log_step(f"Carregando modelo salvo de '{args.load_model}'")
+        payload = joblib.load(args.load_model)
+        model = payload["model"]
+        scaler = payload["scaler"]
+        metadata = payload.get("metadata", {})
+
+        if metadata:
+            meta_str = json.dumps(metadata, indent=2)
+            _log_step("Metadados do modelo carregado:\n" + meta_str)
+
+        _log_step(f"Carregando novos dados a partir de '{args.csv}'")
+        new_df = load_wine_red(args.csv)
+
+        if "quality" in new_df.columns:
+            new_df = new_df.drop(columns=["quality"])
+
+        X_new = new_df.values.astype(float)
+        X_new_scaled = scaler.transform(X_new)
+
+        _log_step(f"Gerando predições para {X_new_scaled.shape[0]} amostras")
+        densities = model.predict(X_new_scaled)
+        logp = model.logpdf(X_new_scaled)
+
+        inference_dir = Path(args.outdir)
+        inference_dir.mkdir(parents=True, exist_ok=True)
+
+        preds_path = inference_dir / "predictions.npy"
+        np.save(preds_path, densities)
+
+        summary = {
+            "mean_density": float(np.mean(densities)),
+            "median_density": float(np.median(densities)),
+            "mean_neg_log_likelihood": float(-np.mean(logp)),
+            "n_samples": int(X_new_scaled.shape[0]),
+            "source_csv": str(args.csv),
+        }
+
+        summary_path = inference_dir / "inference_summary.json"
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
+
+        _log_step(
+            "Resumo das métricas de inferência: "
+            f"NLL médio={summary['mean_neg_log_likelihood']:.4f}, "
+            f"densidade média={summary['mean_density']:.4f}"
+        )
+        _log_step(f"Predições salvas em '{preds_path}'")
+        _log_step(f"Resumo da inferência salvo em '{summary_path}'")
+        _log_step("Pipeline concluído utilizando modelo pré-treinado")
+        return
+
+    # ===== Fluxo de treino completo =====
     _log_step(f"Seed global definida como {args.seed}")
     seed_everything(args.seed)
 
@@ -107,17 +163,37 @@ def main() -> None:
     plot_pareto_2d([entry["fitness"] for entry in pareto], figures_dir / "pareto_2d.png")
     plot_hist_neglogp_test(-test_logp, figures_dir / "hist_test_logp.png")
 
-    joblib.dump({"model": model, "scaler": splits.scaler, "config": best_config.to_jsonable()}, models_dir / "best_model.pkl")
+    joblib.dump(
+        {"model": model, "scaler": splits.scaler, "config": best_config.to_jsonable()},
+        models_dir / "best_model.pkl"
+    )
+
+    # pacote completo com metadados para uso posterior via --load_model
+    final_model_payload = {
+        "model": model,
+        "scaler": splits.scaler,
+        "config": best_config.to_jsonable(),
+        "metadata": {
+            "seed": args.seed,
+            "csv_path": str(args.csv),
+            "pop": args.pop,
+            "gens": args.gens,
+            "kfold": args.kfold,
+            "bootstraps": args.bootstraps,
+            "run_dir": str(run_dir),
+        },
+    }
+    final_model_path = outdir / "final_model.pkl"
+    joblib.dump(final_model_payload, final_model_path)
+    _log_step(f"Modelo final salvo em '{final_model_path}'")
 
     metrics_path = outdir / "metrics.json"
-
     metrics = {
         "test_nll": test_nll,
         "knee_fitness": knee_entry["fitness"],
         "knee_config": knee_entry["config"],
         "pareto_run_dir": str(run_dir),
     }
-
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 

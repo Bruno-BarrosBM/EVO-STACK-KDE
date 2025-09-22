@@ -42,3 +42,9 @@ class KDEEnsemble:
         logps = np.column_stack([expert.logpdf(X) for expert in self.experts])
         log_weights = np.log(self._weights)
         return logsumexp(logps + log_weights, axis=1)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Return density estimates for the provided samples."""
+
+        log_density = self.logpdf(X)
+        return np.exp(log_density)
