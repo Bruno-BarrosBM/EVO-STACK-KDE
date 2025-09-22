@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--csv", required=True, help="Path to winequality-red.csv")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--outdir", default="outputs")
+    # defaults reduzidos para execuções mais rápidas
     parser.add_argument("--pop", type=int, default=20)
     parser.add_argument("--gens", type=int, default=10)
     parser.add_argument("--kfold", type=int, default=2)
@@ -37,7 +38,6 @@ def seed_everything(seed: int) -> None:
     np.random.seed(seed)
     try:
         import torch
-
         torch.manual_seed(seed)
     except Exception:
         pass
@@ -58,6 +58,7 @@ def main() -> None:
     _log_step("Iniciando pipeline EVO-STACK-KDE")
     args = parse_args()
 
+    # ===== Modo de inferência com modelo salvo =====
     if args.load_model:
         _log_step(f"Carregando modelo salvo de '{args.load_model}'")
         payload = joblib.load(args.load_model)
@@ -110,6 +111,7 @@ def main() -> None:
         _log_step("Pipeline concluído utilizando modelo pré-treinado")
         return
 
+    # ===== Fluxo de treino completo =====
     _log_step(f"Seed global definida como {args.seed}")
     seed_everything(args.seed)
 
@@ -161,8 +163,12 @@ def main() -> None:
     plot_pareto_2d([entry["fitness"] for entry in pareto], figures_dir / "pareto_2d.png")
     plot_hist_neglogp_test(-test_logp, figures_dir / "hist_test_logp.png")
 
-    joblib.dump({"model": model, "scaler": splits.scaler, "config": best_config.to_jsonable()}, models_dir / "best_model.pkl")
+    joblib.dump(
+        {"model": model, "scaler": splits.scaler, "config": best_config.to_jsonable()},
+        models_dir / "best_model.pkl"
+    )
 
+    # pacote completo com metadados para uso posterior via --load_model
     final_model_payload = {
         "model": model,
         "scaler": splits.scaler,
@@ -177,20 +183,17 @@ def main() -> None:
             "run_dir": str(run_dir),
         },
     }
-
     final_model_path = outdir / "final_model.pkl"
     joblib.dump(final_model_payload, final_model_path)
     _log_step(f"Modelo final salvo em '{final_model_path}'")
 
     metrics_path = outdir / "metrics.json"
-
     metrics = {
         "test_nll": test_nll,
         "knee_fitness": knee_entry["fitness"],
         "knee_config": knee_entry["config"],
         "pareto_run_dir": str(run_dir),
     }
-
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 

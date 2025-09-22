@@ -55,3 +55,4 @@ Após a primeira execução completa do pipeline, um ensemble final treinado é 
    python -m src.runner --load_model outputs/final_model.pkl --csv data/raw/novos_dados.csv
    ```
    Esse modo carrega o ensemble previamente treinado, aplica o mesmo pré-processamento aos novos dados e gera predições/relatórios sem executar novamente o processo evolutivo.
+=======
