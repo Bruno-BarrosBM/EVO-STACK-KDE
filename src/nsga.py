@@ -7,6 +7,7 @@ from typing import List, Tuple
 
 import numpy as np
 from deap import base, creator, tools
+from tqdm import tqdm
 
 from .eval import complexity, nll_kfold, stability_bootstrap
 from .genome import ExpertConfig, ModelConfig, decode_to_model, random_model_config
@@ -111,14 +112,13 @@ def run_nsga(
 
     pop = toolbox.population(n=pop_size)
 
-    fitnesses = list(map(toolbox.evaluate, pop))
-    for ind, fit in zip(pop, fitnesses):
-        ind.fitness.values = fit
+    for ind in tqdm(pop, desc="Avaliando população inicial", unit="ind"):
+        ind.fitness.values = toolbox.evaluate(ind)
 
     # Assign crowding distance before first tournament selection
     pop = toolbox.select(pop, len(pop))
 
-    for _ in range(1, n_gen + 1):
+    for gen in tqdm(range(1, n_gen + 1), desc="Evoluindo gerações", unit="ger"):
         offspring = tools.selTournamentDCD(pop, len(pop))
         offspring = [_clone_config(ind) for ind in offspring]
 
@@ -133,9 +133,13 @@ def run_nsga(
 
         offspring = [_make_individual(cfg) for cfg in offspring]
 
-        fitnesses = list(map(toolbox.evaluate, offspring))
-        for ind, fit in zip(offspring, fitnesses):
-            ind.fitness.values = fit
+        for ind in tqdm(
+            offspring,
+            desc=f"Geração {gen}: avaliando descendentes",
+            unit="ind",
+            leave=False,
+        ):
+            ind.fitness.values = toolbox.evaluate(ind)
 
         pop = toolbox.select(pop + offspring, pop_size)
 
