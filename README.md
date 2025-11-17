@@ -8,7 +8,7 @@ Este repositório foi reduzido para um estudo focado em **estimação de densida
 - `requirements.txt`: dependências mínimas para executar o notebook.
 
 ## Fonte dos dados
-Use o dataset **Inside Airbnb** correspondente a Lisboa. Baixe o arquivo `listings.csv` mais recente em <http://insideairbnb.com/get-the-data/> e salve-o como `data/listings_lisboa.csv`.
+Use o dataset **Inside Airbnb** correspondente a Lisboa. O notebook baixa automaticamente o `listings.csv` mais recente disponível em <http://insideairbnb.com/get-the-data/> e salva como `data/listings_lisboa.csv` caso o arquivo ainda não exista localmente.
 
 ## Como executar
 1. Crie (e ative) um ambiente virtual se desejar.
@@ -16,7 +16,7 @@ Use o dataset **Inside Airbnb** correspondente a Lisboa. Baixe o arquivo `listin
    ```bash
    pip install -r requirements.txt
    ```
-3. Garanta que o arquivo `data/listings_lisboa.csv` esteja no diretório `data/`.
+3. Se o arquivo `data/listings_lisboa.csv` não existir, o notebook fará o download automático do dataset mais recente de Lisboa ao ser executado.
 4. Abra o notebook:
    ```bash
    jupyter notebook analise_kde_airbnb_lisboa.ipynb
